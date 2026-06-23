@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "content-engine",
+  "owner": "affaan-m",
+  "repo": "everything-claude-code",
+  "path": ".agents/skills/content-engine",
+  "branch": "main",
+  "sha": "edd014c1071742f01f0093a62e790c9719a877a5",
+  "source": "manual"
+}
