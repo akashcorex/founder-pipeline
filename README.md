@@ -1,27 +1,28 @@
-# Daily LinkedIn Posts Pipeline
+# Multi-Platform Content Pipeline — Akash Laha
 
-> Complete automation system for generating, building, and scheduling LinkedIn content for Founders Wing: 16 posts per day (4 Reddit-based + 7 AI news + 5 report-driven performance posts) with carousel PDFs, infographic PNGs, and Slack delivery.
+> Generates content from Reddit + tech news + personal experience. Uses `content-engine` for voice, `crosspost` for LinkedIn/X adaptation, and Buffer for scheduling. Gen Z dark aesthetic for all visual assets.
 
-> **Content positioning — the "Varun Mayya of LinkedIn."** As of 2026-06-14, every stream is governed by [`content-doctrine.md`](content-doctrine.md): we write for ambitious generalists who want to know where AI is going and how to get ahead, framed around AI's impact on work, income, skills, and the future. Technical tutorials, indie-hacker tactics, and tool how-tos are out (they underperform); future-of-work, opportunity, and accessible explainers are in. FounderWing stays the brand. The doctrine overrides older topic guidance in any skill file.
+> **Personal brand:** Akash is a full-stack developer documenting his journey from developer to technical founder. Every post is first person, sharp, and grounded in real experience — what he's building, learning, and shipping. The pipeline is governed by [`content-doctrine.md`](content-doctrine.md).
 
 ---
 
 ## Prerequisites
 
 ### Software
-- **Node.js** ≥ 18 (for Puppeteer scripts and carousel rendering)
-- **Python 3.10+** (for data fetching and LLM generation)
-- **agent-browser** CLI (for LinkedIn scheduling via browser automation)
-- **puppeteer-core** npm package (global or in `carousel-routine/`)
+- **Node.js** ≥ 18 (for carousel rendering via Puppeteer)
+- **Python 3.10+** (for data fetching, LLM generation, and scheduling)
 
 ### API Keys (stored in `.env`)
 ```
 OPENROUTER_API_KEY=...      # For LLM post generation
 ANTHROPIC_API_KEY=...       # Alternative LLM provider
-SLACK_BOT_TOKEN=...         # For Slack delivery
-SLACK_CHANNEL_ID=...        # Target Slack channel
 SCRAPINGDOG_API_KEY=...     # Optional: for X/Twitter research
+BUFFER_API_KEY=...          # Buffer API key for scheduling posts
+BUFFER_LINKEDIN_CHANNEL_ID= # Optional: LinkedIn channel ID override
+BUFFER_X_CHANNEL_ID=        # Optional: X/Twitter channel ID override
 ```
+
+> Channel IDs are auto-detected from your Buffer account. Set these env vars only to override.
 
 ### NPM Dependencies
 ```bash
@@ -35,29 +36,27 @@ cd carousel-routine && npm install
 ```
 ┌─────────────────────────────────────────────────────┐
 │  PHASE 1: DATA FETCHING                              │
-│  ├── Reddit: 6 subreddits via RSS/JSON/Apify         │
-│  ├── AI News: 9 sources (newsletters, blogs, PH)     │
-│  └── Infographic dataset: 1 fresh dataset via search  │
+│  ├── Reddit: 6 subreddits via Apify / JSON / RSS    │
+│  └── AI News: RSS feeds, newsletters                 │
 ├─────────────────────────────────────────────────────┤
-│  PHASE 2: CONTENT GENERATION (via LLM)               │
-│  ├── 4 Reddit posts: Collab Article, Poll, Carousel,  │
-│  │   Infographic                                      │
-│  ├── 7 AI News posts: 7 archetypes                    │
-│  └── 5 Performance posts: report-driven winners       │
+│  PHASE 2: CONTENT GENERATION (skills + LLM)          │
+│  ├── content-engine: voice foundation + hard bans    │
+│  ├── 4 Reddit posts: Article, Poll, Carousel, Info   │
+│  ├── 7 AI News posts (linkedin-ai-news-engine)       │
+│  └── 5 Performance posts (linkedin-performance)      │
 ├─────────────────────────────────────────────────────┤
-│  PHASE 3: VISUAL ASSET CREATION                      │
-│  ├── Carousel: 7 slides → PNG → PDF                  │
-│  └── Infographic: HTML → PNG screenshot               │
+│  PHASE 3: VISUAL ASSETS                              │
+│  ├── Carousel: 7 slides → PNG → PDF                 │
+│  └── Infographic: HTML → PNG via capture_html.py     │
 ├─────────────────────────────────────────────────────┤
-│  PHASE 4: SLACK DELIVERY                             │
-│  ├── All 11 post texts to Slack                       │
-│  ├── Carousel PDF upload                              │
-│  └── Infographic PNG upload                           │
+│  PHASE 4: CROSSPOST ADAPTATION                       │
+│  ├── crosspost skill: adapt voice per platform       │
+│  └── LinkedIn (context) + X (compressed) versions    │
 ├─────────────────────────────────────────────────────┤
-│  PHASE 5: LINKEDIN SCHEDULING                        │
-│  ├── Launch agent-browser with LinkedIn session       │
-│  ├── Run schedule_all_posts.cjs                       │
-│  └── 11 posts → 3 days × 4 posts/day                 │
+│  PHASE 5: SCHEDULING (via Buffer API)                │
+│  ├── build_schedule.py: assemble schedule.json       │
+│  ├── schedule_via_buffer.py: push to Buffer          │
+│  └── LinkedIn + X, 3 days, IST times                 │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -65,80 +64,60 @@ cd carousel-routine && npm install
 
 ## File Reference
 
-### 🧠 Skill Instructions (the brain)
-| File | Purpose |
-|------|---------|
-| `content-doctrine.md` | **North star** — the "Varun Mayya of LinkedIn" positioning, broadened audience, topic filter, and DROP/AMPLIFY lists that govern every stream |
-| `daily-linkedin-posts/SKILL.md` | Master orchestration skill — the full pipeline steps |
-| `commands/linkedin-content.md` | Reddit post writing rules, output format, banned words |
-| `skills/linkedin-ai-news-engine/SKILL.md` | AI news engine — 7 archetype post generation |
-| `skills/linkedin-performance-engine/SKILL.md` | Performance engine — 5 posts modeled on @founderswing's own analytics |
-| `founderswing_linkedin_content_report.md` | Live LinkedIn analytics report — the performance engine reads this each run; drop in an updated report to refresh the winning patterns |
-| `skills/branded-carousel/SKILL.md` | Carousel design system, slide layouts, brand research |
-| `skills/branded-carousel/FORMATS.md` | 6 carousel format templates (Brand Story, Listicle, etc.) |
-| `skills/illustration-formats/SKILL.md` | 5 infographic formats (Ranked Bars, Donut, Timeline, etc.) |
-| `voice-profile.md` | Prithal's writing voice, tone, banned words |
+### 🧠 Skills (the brain)
 
-### 📡 Data Fetching Scripts
 | File | Purpose |
 |------|---------|
-| `fetch_reddit_apify.py` | Primary: Fetch Reddit via Apify API (paid, most reliable) |
-| `fetch_reddit_fallback.py` | Fallback: Fetch Reddit JSON endpoints directly |
-| `fetch_reddit_rss.py` | Last resort: Fetch Reddit RSS feeds (no engagement metrics) |
-| `fetch_reddit_puppeteer.cjs` | Browser-based Reddit fetch (bypasses rate limits) |
-| `fetch_ai_news_rss.py` | Fetch AI news from newsletter RSS feeds |
+| `daily-linkedin-posts/SKILL.md` | **Master orchestrator** — the full 9-step pipeline |
+| `skills/content-engine/SKILL.md` | **Voice foundation** — writing rules, hard bans, quality gate |
+| `skills/crosspost/SKILL.md` | **Platform adaptation** — X vs LinkedIn voice differences |
+| `skills/branded-carousel/SKILL.md` | Carousel design system, slide layouts |
+| `skills/branded-carousel/FORMATS.md` | 6 carousel format templates |
+| `skills/illustration-formats/SKILL.md` | 5 infographic format recipes |
+| `skills/linkedin-ai-news-engine/SKILL.md` | AI news engine — 7 archetypes |
+| `skills/linkedin-performance-engine/SKILL.md` | Performance engine — 5 report-driven posts |
+| `commands/linkedin-content.md` | Post writing rules, archetypes, banned words |
+| `content-doctrine.md` | North star: topic filter, DROP list, positioning |
 
-### ✍️ Content Generation Scripts
-| File | Purpose |
-|------|---------|
-| `generate_posts_via_openrouter.py` | Generate 4 Reddit-based posts via OpenRouter/Claude API |
-| `generate_posts_via_anthropic.py` | Alternative: Generate posts via Anthropic API directly |
-| `generate_ai_news.py` | Generate 7 AI news posts |
-| `generate_ai_news_part2.py` | Continuation script for AI news generation |
-| `write_today_data.py` | Master script: combines all posts into daily output file |
-| `correct_posts.py` | Post-processing: fix formatting, remove banned words |
+### 📡 Data Fetching
 
-### 🎨 Carousel Generation
 | File | Purpose |
 |------|---------|
-| `generate_branded_carousel.py` | Generate carousel slide content from LLM |
-| `generate_carousel_today.py` | Today's carousel generation with brand research |
-| `generate_carousel_run.py` | Carousel run orchestrator |
-| `build_carousel_today.cjs` | Build carousel HTML slides from content |
-| `build_carousel_core.cjs` | Core carousel HTML builder |
-| `carousel-routine/render.js` | Puppeteer: screenshot each slide to PNG |
-| `carousel-routine/render-pdf.js` | Puppeteer: render slides directly to PDF |
-| `carousel-routine/compile_pdf.js` | Combine slide PNGs into single PDF |
-| `carousel-routine/screenshot_all.js` | Screenshot all 7 slide HTML files |
-| `carousel-routine/brand-kit.html` | Founders Wing brand design system HTML |
-| `carousel-routine/package.json` | Node dependencies (puppeteer, pdf-lib) |
+| `fetch_reddit_apify.py` | Primary: Reddit via Apify API |
+| `fetch_reddit_fallback.py` | Fallback: Reddit JSON endpoints |
+| `fetch_reddit_rss.py` | Last resort: Reddit RSS feeds |
+| `fetch_ai_news_rss.py` | AI news from RSS feeds |
 
-### 📊 Infographic Generation
-| File | Purpose |
-|------|---------|
-| `generate_infographic_today.py` | Generate infographic HTML from dataset |
-| `linkedin-infographic-template.html` | Base HTML template for infographics |
-| `linkedin-infographic.html` | Latest generated infographic HTML |
-| `cap_infographic_today.cjs` | Screenshot infographic HTML → 1080×1080 PNG |
-| `cap_infographic.cjs` | Alternative screenshot script |
+### ✍️ Content Generation
 
-### 📨 Slack Delivery
 | File | Purpose |
 |------|---------|
-| `send_to_slack.py` | Master Slack delivery: texts + PDF + PNG |
-| `send_slack_message.py` | Simple text message to Slack |
-| `check_slack_for_posts.py` | Check Slack for previously sent posts |
+| `generate_posts_via_openrouter.py` | LLM post generation via OpenRouter/Gemini |
+| `write_today_data.py` | Master script: combine posts into output file |
+| `correct_posts.py` | Post-processing: fix banned words, formatting |
 
-### 📅 LinkedIn Scheduling
+### 🎨 Visual Assets
+
 | File | Purpose |
 |------|---------|
-| `schedule_all_posts.cjs` | Schedule ALL 11 posts (4/day × 3 days) |
-| `schedule_four_posts.cjs` | Schedule 4 Reddit-based posts only |
-| `schedule_other_posts.cjs` | Schedule remaining AI news posts |
-| `delete_all_scheduled.cjs` | Delete all scheduled posts |
-| `edit_scheduled_posts.cjs` | Edit existing scheduled posts |
-| `verify_scheduled_posts.cjs` | Verify scheduled posts are correct |
-| `get_scheduled_contents.cjs` | Extract content from scheduled posts |
+| `carousel-routine/render.js` | HTML slides → 1080×1080 PNGs |
+| `carousel-routine/render-pdf.js` | PNGs → compiled PDF |
+| `carousel-routine/compile_pdf.js` | Alternative PDF compiler |
+| `carousel-routine/screenshot_all.js` | Batch screenshot all slides |
+| `carousel-routine/brand-kit.html` | Brand design system HTML |
+| `carousel-routine/capture_source.js` | Capture product images from source URLs |
+| `capture_html.py` | Generic HTML → PNG capture via Puppeteer |
+| `linkedin-infographic-template.html` | Base infographic HTML template |
+
+### 📅 Scheduling (Buffer API)
+
+| File | Purpose |
+|------|---------|
+| `buffer_client.py` | Buffer GraphQL API client |
+| `schedule_via_buffer.py` | Schedule posts to LinkedIn + X |
+| `build_schedule.py` | Build schedule.json from pipeline output |
+| `schedule.json.example` | Example schedule format |
+| `buffer.md` | Buffer API reference docs |
 
 ### 📋 State & Log Files
 | File | Purpose |
@@ -152,7 +131,7 @@ cd carousel-routine && npm install
 
 ---
 
-## How to Run (Step by Step)
+## How to Run
 
 ### Phase 1: Fetch Data
 ```bash
@@ -164,68 +143,84 @@ python3 fetch_reddit_fallback.py
 
 # If JSON blocked (403/429), fall back to RSS
 python3 fetch_reddit_rss.py
+
+# Fetch AI news RSS
+python3 fetch_ai_news_rss.py
 ```
 
 ### Phase 2: Generate Content
-The content generation is handled by the AI agent (Antigravity/Claude) following the skill instructions in:
-- `commands/linkedin-content.md` → 4 Reddit posts
+The AI agent follows skill instructions:
+- `skills/content-engine/SKILL.md` → voice foundation for all posts
+- `commands/linkedin-content.md` → 4 Reddit-based posts
 - `skills/linkedin-ai-news-engine/SKILL.md` → 7 AI news posts
+- `skills/linkedin-performance-engine/SKILL.md` → 5 performance posts
 
-The agent reads `reddit_data.json`, selects topics, and writes all 11 posts following the voice profile and writing rules.
-
-Output: `linkedin_posts_YYYYMMDD.txt`
+Or use the LLM script:
+```bash
+python3 generate_posts_via_openrouter.py
+```
 
 ### Phase 3: Build Visual Assets
 
 **Carousel:**
 ```bash
-# 1. Agent generates slide HTML files in carousel-routine/temp/
-# 2. Screenshot slides to PNG
-cd carousel-routine && node screenshot_all.js
-# 3. Compile PNGs to PDF
-node compile_pdf.js
+# Agent generates slide HTML in carousel-routine/temp/
+# Render slides to PNG
+cd carousel-routine && node render.js
+# Compile PNGs to PDF
+node render-pdf.js
 ```
 
 **Infographic:**
 ```bash
-# 1. Agent generates linkedin-infographic.html
-# 2. Screenshot to 1080×1080 PNG
-node cap_infographic_today.cjs
+# Agent generates linkedin-infographic.html
+# Screenshot to 1080×1080 PNG
+python3 capture_html.py --input linkedin-infographic.html --output linkedin-infographic-$(date +%Y%m%d).png
 ```
 
-### Phase 4: Send to Slack
+### Phase 4: Crosspost Adaptation
+AI agent runs `skills/crosspost/SKILL.md` to produce platform-specific versions:
+- LinkedIn: context for broader audience
+- X: compressed, sharpest claim first
+
+### Phase 5: Schedule via Buffer
 ```bash
-python3 send_to_slack.py
+# Build schedule.json from generated posts
+python3 build_schedule.py
+
+# Preview (dry run)
+python3 schedule_via_buffer.py --schedule-file schedule.json --dry-run
+
+# Schedule all posts to LinkedIn + X
+python3 schedule_via_buffer.py --schedule-file schedule.json
 ```
 
-### Phase 5: Schedule on LinkedIn
-```bash
-# 1. Launch browser with LinkedIn session
-agent-browser --session-name linkedin_bot open https://www.linkedin.com/feed/
+Posts are scheduled via Buffer's GraphQL API with `customScheduled` mode at the specified IST times (auto-converted to UTC). Both LinkedIn and X channels are targeted by default. Media images require publicly hosted URLs — upload to Cloudinary, Cloudflare R2, or similar before scheduling.
 
-# 2. Run the scheduling script (schedules all 11 posts)
-node schedule_all_posts.cjs
+**To list available channels:**
+```bash
+python3 schedule_via_buffer.py --list-channels
 ```
 
 ---
 
-## Post Schedule (4 posts/day × 3 days)
+## Post Schedule (4 posts/day × 3 days → LinkedIn + X)
 
 | Day | Time (IST) | Post Type | Content Source |
 |-----|-----------|-----------|---------------|
-| Day 1 | 9:00 AM | 🎠 Carousel (PDF) | Reddit |
-| Day 1 | 12:00 PM | 📊 Infographic (PNG) | Reddit + Data |
-| Day 1 | 3:00 PM | 📝 Collaborative Article | Reddit |
-| Day 1 | 6:00 PM | 📊 Poll | Reddit |
-| Day 2 | 9:00 AM | ✍️ Tool Spotlight | AI News |
-| Day 2 | 12:00 PM | ✍️ Weekly Roundup | AI News |
-| Day 2 | 3:00 PM | ✍️ Plain English Breakdown | AI News |
-| Day 2 | 6:00 PM | ✍️ Unfair Advantage | AI News |
-| Day 3 | 9:00 AM | ✍️ Career/Income Angle | AI News |
-| Day 3 | 12:00 PM | ✍️ Hot Take | AI News |
-| Day 3 | 3:00 PM | ✍️ Steal This | AI News |
+| Day 1 | 9:00 AM | Carousel (image) | Reddit |
+| Day 1 | 12:00 PM | Infographic (image) | Reddit + Data |
+| Day 1 | 3:00 PM | Collaborative Article (text) | Reddit |
+| Day 1 | 6:00 PM | Poll → Text | Reddit |
+| Day 2 | 9:00 AM | Tool Spotlight (text) | AI News |
+| Day 2 | 12:00 PM | Weekly Roundup (text) | AI News |
+| Day 2 | 3:00 PM | Plain English (text) | AI News |
+| Day 2 | 6:00 PM | Unfair Advantage (text) | AI News |
+| Day 3 | 9:00 AM | Career/Income (text) | AI News |
+| Day 3 | 12:00 PM | Hot Take (text) | AI News |
+| Day 3 | 3:00 PM | Steal This (text) | AI News |
 
-> **Note:** The 5 report-driven performance posts (STEP 7) are **delivered to Slack for review/manual posting but are not yet wired into the LinkedIn auto-scheduler.** Scheduling them automatically is a separate task. See the cadence caveat below.
+> **Note:** The 5 report-driven performance posts (STEP 7) are **delivered for review/manual posting but are not yet wired into the LinkedIn auto-scheduler.** Scheduling them automatically is a separate task. See the cadence caveat below.
 
 ### ⚠️ Cadence caveat (from the analytics report)
 

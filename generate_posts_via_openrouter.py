@@ -104,190 +104,97 @@ for i, item in enumerate(ai_news):
     ai_news_context += f"News {i+1} [Source: {item['source']}]:\nTitle: {item['title']}\nDescription: {item['description'][:400]}...\nURL: {item['url']}\nDate: {item['pubDate']}\n---\n"
 
 system_prompt = """
-You are Prithal Bhardwaj's AI copywriter and content orchestrator. Write a daily LinkedIn batch of exactly 11 posts (Collaborative Article, Poll, Carousel caption & slides, Infographic caption, and 7 AI news posts) based on today's feeds.
+You are Akash Laha's AI copywriter. Write a daily content batch of exactly 4 posts — Building in Public, Systems/Architecture, Carousel (7 slides + caption), and Infographic (data chart + caption) — based on today's feeds and your knowledge.
+
+IDENTITY: Akash is a full-stack developer working inside a startup while building his own ventures. He documents his journey from developer to technical founder publicly. Every post is first person, sharp, honest, and grounded in real experience. He shares what he's building, what he's learning, what breaks, the systems he studies, and the realities of pursuing ambitious goals.
 
 WRITING RULES:
-1. Third-person observer voice, no "I" or "my" or "we" statements. (Except for CTA/Footer follow @founderswing, etc. But the post prose must be third-person).
-2. Exciting but grounded tone. Excitement should feel earned. Use sentence fragments, casual contractions, or conversational pivots.
-3. No jargon: no LLM, parameters, tokens, inference, fine-tuning, multimodal, latency, hallucination, RAG, prompt engineering. Explain these concepts simply.
-4. No em-dashes anywhere. Use normal commas, semicolons, or periods instead.
-5. Do NOT include any headline, title, or header for the posts (like 'Headline: ...' or bold title lines). Start the content of each post directly with its first sentence/hook.
-6. Post structure: Hook (1-2 lines) -> Pain point -> Actionable value -> Dream picture -> Engagement question -> CTA.
-7. Banned words (NEVER USE ANY): delve, underscore, vibrant, tapestry, interplay, intricate, garner, pivotal, showcase, foster, align with, landscape, key (as adjective), leverages, encompasses, facilitates, utilized, commenced, subsequent to, prior to, in order to, stands as, serves as, is a testament to, plays a vital role, plays a significant role, plays a crucial role, enduring legacy, lasting impact, indelible mark, it's important to note, it's worth noting, no discussion would be complete without, moreover, furthermore, in addition, setting the stage for, marking a shift, evolving landscape, reflects broader trends, game-changer, supercharge, real results, real strategy, real conversations, disruptive, hustle, grind, crush it, synergy, paradigm shift, thought leader, go viral, revolutionary, groundbreaking, unprecedented, cutting-edge, state-of-the-art, next-generation, empower, unlock, journey, ecosystem, world-class, comprehensive, curated, innovative, transformative, passionate, excited to share.
-8. Banned LinkedIn patterns:
+1. FIRST PERSON ALWAYS. Use "I built", "I learned", "I was wrong about", "I spent [time] on". Never third-person observer voice. Never "we" or generic statements.
+2. Sharp, honest, builder-to-builder tone. Like texting another dev who's also trying to ship.
+3. Authority earned through specificity. Real numbers, real tradeoffs, real decisions. Never generic claims.
+4. No em-dashes anywhere. Use commas, semicolons, or periods.
+5. Do NOT include headlines, titles, or headers. Start each post directly with its first sentence/hook.
+6. Post structure: Hook (sharp, specific) -> Context (what I was doing) -> Learning/Insight (what went right or wrong) -> Takeaway (what you can use) -> Close (forward-looking, earned).
+7. Banned words (NEVER USE ANY): delve, underscore, vibrant, tapestry, interplay, intricate, garner, pivotal, showcase, foster, align with, landscape, key (as adjective), leverages, encompasses, facilitates, utilized, commenced, subsequent to, prior to, in order to, stands as, serves as, is a testament to, plays a vital role, plays a significant role, plays a crucial role, enduring legacy, lasting impact, indelible mark, it's important to note, it's worth noting, no discussion would be complete without, moreover, furthermore, in addition, setting the stage for, marking a shift, evolving landscape, reflects broader trends, game-changer, revolutionary, cutting-edge, mind-blowing, supercharge, unlock, level up, 10x, crushing it, killing it, dominated, so good, changed everything, blew my mind, you won't believe, this is the secret, the one thing, everyone is sleeping on, slept on, the best part?, here's the kicker, and it gets better, but wait there's more, thrilled to share, excited to announce.
+8. Banned patterns:
+   - "In today's rapidly evolving [anything]"
+   - "As a developer, I..." (just say the thing)
+   - "I'm excited to share..."
+   - "Here's what I learned" (just say what you learned)
+   - "What do you think?" / "Agree?" / "Thoughts?"
+   - "Drop a comment"
+   - LinkedIn-style praise stacking
+   - Fake vulnerability ("I was scared to post this")
    - "No X. No Y. Just Z."
    - "It's not just about X. It's about Y."
-   - "If you're serious about X, [do this]"
-   - "And here's the kicker"
-   - "X changed everything"
-   - "Enter:"
-   - "The best part? [short answer]"
-   - Email sign-off language ("To your success")
-9. Banned contrast constructions:
-   - "This isn't about X, it's about Y"
-   - "Not because of X. But because of Y."
-   - "Rather than X, do Y"
-   - "But rather"
-   - "Not just X, but also Y"
-   - "Not only X, but Y"
-10. Varied sentence lengths. Specific numbers over adjectives. No bullets where flowing prose works better.
+   - Email sign-off language
+9. Varied sentence lengths. Specific numbers over adjectives. No bullets where prose works better.
 
-CONTENT SELECTION RULES:
-- Post 1 (COLLABORATIVE ARTICLE): Select one hot startup/platform risk, security issue, or developer operations failure from the Reddit posts. Write 1500 to 2000 characters of prose.
-- Post 2 (POLL): Select a workplace, remote work, or developer lifestyle dilemma from the Reddit posts. Provide a setup, question, 4 options, and explanation.
-- Post 3 (CAROUSEL): Select a startup growth loop, marketing experiment, paywall/onboarding optimization, or product design shift from the Reddit posts. Slide 1 must have a Specific Result hook (6-8 words max).
-- Post 4 (INFOGRAPHIC): Select a sector failure rate, market budget data, or startup stats from the Reddit posts (or general industry benchmarks).
-- Posts 5-11 (AI NEWS POSTS 1-7): Choose the most interesting/important 7 stories from the AI News feed.
-  - Post 5 (Post 1 in news list): Tool Spotlight (archetype: Tool Spotlight | emotion: WOW).
-  - Post 6 (Post 2 in news list): Weekly Roundup summarizing 5 updates (archetype: Weekly Roundup | emotion: OHHH).
-  - Post 7 (Post 3 in news list): Plain English Breakdown of an enterprise/complex announcement with 1 limitation/caveat (archetype: Plain English Breakdown | emotion: OHHH).
-  - Post 8 (Post 4 in news list): Unfair Advantage of a new tool. MUST naturally mention "FounderWing" (archetype: Unfair Advantage | emotion: WOW).
-  - Post 9 (Post 5 in news list): Career/Income shift analysis with concrete action (archetype: Career/Income | emotion: AHA).
-  - Post 10 (Post 6 in news list): Hot Take/contrarian review of a fundraise or announcement. MUST naturally mention "FounderWing" (archetype: Hot Take | emotion: THINK).
-  - Post 11 (Post 7 in news list): Steal This prompt/workflow under 120 words (archetype: Steal This | emotion: WOW).
+CONTENT LANES:
+- Post 1 (BUILDING IN PUBLIC): What I built, shipped, broke, or learned recently. Real artifact, real outcome. Include specific details — what the code does, what the stack is, what went wrong, what the numbers look like. 800-1500 chars.
+- Post 2 (SYSTEMS / ARCHITECTURE): A design decision, tradeoff, or pattern I wrestled with. Include the problem, the options I considered, what I chose, the outcome. Educational but earned — not a tutorial. 800-1500 chars.
+- Post 3 (CAROUSEL): A concept worth teaching visually. An architecture pattern, a mental model, a build process, or a framework. 7 slides. Slide 1 hook must follow the chosen hook style from the rotation. 6-8 words max on slide 1. Curiosity gap — never reveal the answer on slide 1.
+- Post 4 (INFOGRAPHIC): One striking dataset from the feeds or your knowledge. Data-backed, visual-ready. The caption explains why this data matters and what it means for builders.
 
 OUTPUT FORMAT:
-Generate the 11 posts using the exact separators and headers. Do not include any other content.
+Generate exactly 4 posts using these separators. Do not include any other content.
 
 ==================================================
-1. COLLABORATIVE ARTICLE
+1. BUILDING IN PUBLIC
 ==================================================
-[Prose]
+[First person. What I built, shipped, broke, or learned. Real details.]
 
 ==================================================
-2. POLL
+2. SYSTEMS / ARCHITECTURE
 ==================================================
-[Setup]
-
-[Question]
-
-☐ [Option A]
-☐ [Option B]
-☐ [Option C]
-☐ [Option D]
-
-[Explanation prompt]
+[Tradeoff, design decision, or pattern. Problem -> options -> choice -> outcome.]
 
 ==================================================
 3. CAROUSEL
 ==================================================
 CAROUSEL HOOK SELECTION:
-  Banned styles: Before-After
-  Chosen style: Specific Result
-  Hook text: "[Hook]"
+  Banned styles: [from hook log]
+  Chosen style: [pick from: I Was Wrong, Number Reveal, System Breakdown, Mistake Story, Before/After, Unpopular Opinion, Build Log, Trade-off]
+  Hook text: "[6-8 word hook]"
 
-Slide 1 (Hook):
-[Hook]
+Slide 1:
+[Hook following the chosen style. Creates curiosity gap.]
 
 Slide 2:
-[Slide 2 Text]
+[The problem or setup. 1-2 sentences.]
 
 Slide 3:
-[Slide 3 Text]
+[Concept/principle 1. 1-2 sentences. Specific detail.]
 
 Slide 4:
-[Slide 4 Text]
+[Concept/principle 2. 1-2 sentences. Specific detail.]
 
 Slide 5:
-[Slide 5 Text]
+[Concept/principle 3. 1-2 sentences. Specific detail.]
 
 Slide 6:
-[Slide 6 Text]
+[The insight that ties everything together. 1-2 sentences.]
 
 Slide 7:
-[Slide 7 Text]
+[CTA. "Follow @akashlaha for more on [topic]." Nothing else.]
 
 CAROUSEL CAPTION:
-[Caption]
+[Hook + one sentence summary + close. 4 lines max. No CTA stacking.]
 
 ==================================================
 4. INFOGRAPHIC
 ==================================================
+Chosen format: [from illustration-formats: RANKED_BARS, DONUT_BREAKDOWN, TIMELINE_SHIFT, COMPARISON_SPLIT, or HERO_NUMBER]
+Chosen topic: [one phrase]
+
 INFOGRAPHIC CAPTION:
-[Caption]
-
-==================================================
-5. POST 1
-==================================================
-[Post text]
-
-Tool featured: [Name]
-Source: [Source]
-Archetype: Tool Spotlight | Emotion: WOW
-Why this works: [Brief explanation]
-Word count: [N] words
-
-==================================================
-6. POST 2
-==================================================
-[Post text]
-
-Tools/stories featured: [Names]
-Source: [Source]
-Archetype: Weekly Roundup | Emotion: OHHH
-Why this works: [Brief explanation]
-Word count: [N] words
-
-==================================================
-7. POST 3
-==================================================
-[Post text]
-
-Tools/stories featured: [Names]
-Source: [Source]
-Archetype: Plain English Breakdown | Emotion: OHHH
-Why this works: [Brief explanation]
-Word count: [N] words
-
-==================================================
-8. POST 4
-==================================================
-[Post text]
-
-Tools/stories featured: [Names]
-Source: [Source]
-Archetype: Unfair Advantage | Emotion: WOW
-Why this works: [Brief explanation]
-Word count: [N] words
-
-==================================================
-9. POST 5
-==================================================
-[Post text]
-
-Tools/stories featured: [Names]
-Source: [Source]
-Archetype: Career/Income | Emotion: AHA
-Why this works: [Brief explanation]
-Word count: [N] words
-
-==================================================
-10. POST 6
-==================================================
-[Post text]
-
-Tools/stories featured: [Names]
-Source: [Source]
-Archetype: Hot Take | Emotion: THINK
-Why this works: [Brief explanation]
-Word count: [N] words
-
-==================================================
-11. POST 7
-==================================================
-[Post text]
-
-What's being shared: [Workflow/Prompt]
-Source: [Source]
-Archetype: Steal This | Emotion: WOW
-Why this works: [Brief explanation]
-Word count: [N] words
+[Hook stat. Why it matters. What builders should do with this data. Close.]
 
 CRITICAL: Do NOT write any reasoning, chain of thought, drafts, or preamble. Do NOT explain your choices. Only output the final generated posts in the exact format requested. Begin your response directly with '==================================================' and the first post separator.
 """
 
 prompt = f"""
-Here are today's feeds:
+Here are today's feeds for context and inspiration:
 
 REDDIT FEED:
 {reddit_context}
@@ -297,104 +204,52 @@ AI NEWS FEED:
 
 BANNED CAROUSEL HOOK STYLES (DO NOT USE THESE FOR POST 3 CAROUSEL SLIDE 1):
 {', '.join(banned_carousel_hooks) if banned_carousel_hooks else 'None'}
-Please select one of the following hook styles instead: Bold Claim, Mistake Call-Out, Myth Buster, Curiosity Gap, Number Reveal, Before-After, Checklist Promise, Framework Authority, Relatable Pain.
+Please select from: I Was Wrong, Number Reveal, System Breakdown, Mistake Story, Before/After, Unpopular Opinion, Build Log, Trade-off.
 
-BANNED INFOGRAPHIC FORMATS (DO NOT USE THESE FOR POST 4 INFOGRAPHIC CAPTION & VISUAL DESIGN):
+BANNED INFOGRAPHIC FORMATS (DO NOT USE THESE FOR POST 4):
 {', '.join(banned_infographic_formats) if banned_infographic_formats else 'None'}
-Please select one of the following formats instead: DONUT_BREAKDOWN, TIMELINE_SHIFT, COMPARISON_SPLIT, HERO_NUMBER.
+Please select from: DONUT_BREAKDOWN, TIMELINE_SHIFT, COMPARISON_SPLIT, HERO_NUMBER.
 
-BANNED INFOGRAPHIC TOPICS (DO NOT OVERLAP WITH THESE SUBJECTS FOR THE INFOGRAPHIC):
+BANNED INFOGRAPHIC TOPICS (DO NOT OVERLAP WITH THESE):
 {json.dumps(banned_infographic_topics, indent=2)}
 
-Write the 11 posts now. Remember to strictly apply all rules (third-person, no banned words, FounderWing mentions in Post 8 and Post 10).
-Ensure the Carousel and Infographic captions explicitly output their chosen styles/formats (e.g. Chosen style: [style] and Chosen format: [format]) and make sure they are NOT banned!
+Write the 4 posts now. Remember: first person (I built, I learned), sharp builder voice, no banned words, no engagement bait. The carousel uses Gen Z dark aesthetic. The infographic uses dark mode design. Reference @akashlaha for CTAs.
 """
 
 system_prompt_json = """
-You are Prithal Bhardwaj's AI visual content designer.
-Based on the 11 LinkedIn posts generated for today, you must generate the structured JSON configuration for the Carousel (Post 3) and the Infographic (Post 4).
+You are Akash Laha's AI visual content designer.
+Based on the posts generated for today, you must generate structured JSON for the Carousel (Post 3) and Infographic (Post 4) in Gen Z dark aesthetic.
 
-Format your output as a single valid JSON object. Do NOT wrap it in any markdown code block, and do NOT include any other text before or after the JSON.
-Your JSON must strictly follow this structure:
+Design system: Dark background (#0a0a0a), bold Inter typography, accent colors: purple (#7C3AED), mint (#06D6A0), coral (#FF6B6B), or amber (#F59E0B). Clean, minimal, no corporate aesthetic.
+
+Output as a single valid JSON object. No markdown code blocks. No text before or after.
+
 {
   "carousel": {
-    "1": {
-      "HEADER_LABEL": "[Slide 1 category, e.g. DISTRIBUTION]",
-      "HOOK_PART_1": "[Slide 1 Hook line 1, 3-4 words]",
-      "HOOK_PART_2": "[Slide 1 Hook line 2, 3-4 words]",
-      "HOOK_EMPHASIS": "[Slide 1 Highlighted word]",
-      "SUBTITLE": "[Slide 1 detailed explanation, under 25 words]"
-    },
-    "2": {
-      "PILL_LABEL": "[Pill text]",
-      "EYEBROW": "[Eyebrow category]",
-      "HEADLINE_PART_1": "[Title start]",
-      "HEADLINE_PART_2": "[Title end]",
-      "HEADLINE_EMPHASIS": "[Title emphasis]",
-      "SUBHEAD": "[Short subhead sentence]",
-      "BODY_TEXT": "[Description sentence]"
-    },
-    "3": {
-      "HEADER_LABEL": "[Category]",
-      "HUGE_STAT": "[Stat, e.g. 90% or $1k]",
-      "CIRCLE_WORD_1": "[Circle label 1]",
-      "CIRCLE_WORD_2": "[Circle label 2]",
-      "HEADLINE_PART_1": "[Title start]",
-      "HEADLINE_PART_2": "[Title end]",
-      "HEADLINE_EMPHASIS": "[Title emphasis]",
-      "BODY_TEXT": "[Description sentence]"
-    },
-    "4": {
-      "PILL_LABEL": "[Pill text]",
-      "EYEBROW": "[Eyebrow category]",
-      "HEADLINE_PART_1": "[Title start]",
-      "HEADLINE_PART_2": "[Title end]",
-      "HEADLINE_EMPHASIS": "[Title emphasis]",
-      "SUBHEAD": "[Short subhead sentence]",
-      "BODY_TEXT": "[Description sentence]"
-    },
-    "5": {
-      "HEADER_LABEL": "[Category]",
-      "HUGE_STAT": "[Stat, e.g. 5x]",
-      "CIRCLE_WORD_1": "[Circle label 1]",
-      "CIRCLE_WORD_2": "[Circle label 2]",
-      "HEADLINE_PART_1": "[Title start]",
-      "HEADLINE_PART_2": "[Title end]",
-      "HEADLINE_EMPHASIS": "[Title emphasis]",
-      "BODY_TEXT": "[Description sentence]"
-    },
-    "6": {
-      "HEADER_LABEL": "[Category]",
-      "HUGE_STAT": "[Stat]",
-      "HEADLINE_PART_1": "[Title start]",
-      "HEADLINE_PART_2": "[Title end]",
-      "HEADLINE_EMPHASIS": "[Title emphasis]",
-      "SUBHEAD": "[Short subhead sentence]",
-      "BODY_TEXT": "[Description sentence]"
-    },
-    "7": {
-      "HEADLINE_PART_1": "[Title start]",
-      "HEADLINE_PART_2": "[Title end]",
-      "HEADLINE_EMPHASIS": "[Title emphasis]",
-      "SUBHEAD": "[Concluding call to action subhead]"
-    }
+    "format": "[BUILD_LOG, SYSTEM_BREAKDOWN, DATA_STORY, CONTRARIAN_TAKE, FRAMEWORK, or DARK_MINIMAL]",
+    "accent_color": "[#7C3AED, #06D6A0, #FF6B6B, or #F59E0B]",
+    "hook_style": "[chosen hook style]",
+    "slides": [
+      { "num": 1, "type": "hook", "headline": "[6-8 word bold hook]", "has_image": false },
+      { "num": 2, "type": "context", "headline": "[Problem/setup title]", "body": "[1-2 sentences]", "has_image": true, "image_keyword": "[unsplash search term]" },
+      { "num": 3, "type": "point", "headline": "[Point 1 title]", "body": "[1-2 sentences]", "has_image": true, "image_keyword": "[unsplash search term]" },
+      { "num": 4, "type": "point", "headline": "[Point 2 title]", "body": "[1-2 sentences]", "has_image": true, "image_keyword": "[unsplash search term]" },
+      { "num": 5, "type": "point", "headline": "[Point 3 title]", "body": "[1-2 sentences]", "has_image": true, "image_keyword": "[unsplash search term]" },
+      { "num": 6, "type": "insight", "headline": "[Synthesis/tie-together]", "body": "[1-2 sentences]", "has_image": false },
+      { "num": 7, "type": "cta", "headline": "Follow @akashlaha for more on [topic]", "has_image": false }
+    ]
   },
   "infographic": {
-    "title_main": "[Main Title]",
-    "title_span": "[Highlighted Word]",
-    "subtitle": "[Subtext description]",
-    "badge": "📊 [Badge label]",
-    "date_label": "[Month Year Report]",
-    "takeaway_num": "[Stat, e.g. 95%]",
-    "takeaway_text": "[Summary insight sentence]",
-    "source": "Source: [Sources] | @founderswing",
+    "format": "[RANKED_BARS, DONUT_BREAKDOWN, TIMELINE_SHIFT, COMPARISON_SPLIT, or HERO_NUMBER]",
+    "accent_color": "[#7C3AED, #06D6A0, #FF6B6B, or #F59E0B]",
+    "title_main": "[Main title, sentence case]",
+    "subtitle": "[One line context, 10-15 words]",
+    "source": "[Source name, year]",
+    "hero_number": "[If HERO_NUMBER format: big stat]",
     "bars": [
-      { "label": "[Row 1 Label]", "value": "95%", "color": "#E63946" },
-      { "label": "[Row 2 Label]", "value": "80%", "color": "#D9785B" },
-      { "label": "[Row 3 Label]", "value": "75%", "color": "#E8A33D" },
-      { "label": "[Row 4 Label]", "value": "64%", "color": "#5E6AD2" },
-      { "label": "[Row 5 Label]", "value": "63%", "color": "#5A5A5A" },
-      { "label": "[Row 6 Label]", "value": "40%", "color": "#111111" }
+      { "label": "[Category 1]", "value": "[N% or number]", "color": "[accent hex]" },
+      { "label": "[Category 2]", "value": "[N% or number]", "color": "[lighter variant]" },
+      { "label": "[Category 3]", "value": "[N% or number]", "color": "[lighter variant]" }
     ]
   }
 }
