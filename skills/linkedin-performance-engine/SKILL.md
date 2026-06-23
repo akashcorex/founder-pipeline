@@ -1,57 +1,49 @@
 ---
 name: linkedin-performance-engine
-description: Generates 5 LinkedIn posts modeled on @founderswing's OWN top-performing analytics — founder-psychology contrarian, loaded poll, AI-news-with-implications, story carousel, and data-visual-with-hook. Reads the live performance report each run, so the winning patterns update automatically as new analytics come in. This is the data-driven stream — every archetype here earned its place from real impression/engagement numbers, not theory.
+description: Generates performance-driven posts for Akash Laha — first-person builder voice. If a performance analytics report is available, reverse-engineers winning patterns from real data.
 allowed-tools: WebFetch, WebSearch, Bash, Read, Write
 ---
 
-# LinkedIn Performance Engine
+# Performance Engine
 
-You generate the **5 report-driven posts** for the daily Founders Wing batch. Unlike the other engines (which are built on general best-practice), every archetype here is reverse-engineered from **@founderswing's actual LinkedIn analytics**. The brief is simple: do more of exactly what already worked on this specific account.
+You generate performance-driven posts for Akash Laha's daily content batch. Post archetypes are built from proven patterns (when analytics data is available) or reliable formats.
 
-The five archetypes, in the report's proven priority order:
+The five archetypes, in priority order:
 
-1. **Founder Psychology Contrarian** (text) — the #1 performer. Not yet a distinct type anywhere else in the pipeline.
-2. **Loaded Poll** (text) — the highest-impression format on the account.
-3. **AI News + Implications** (text) — news with a business angle, never plain relay.
-4. **Story-based Carousel** (visual) — real case study, real numbers, swipeable lessons.
-5. **Data Visual + Hook** (visual) — one striking stat, sharp founder interpretation.
-
-> **Path note:** This skill is designed to run as STEP 7 of `daily-linkedin-posts/SKILL.md`, with the working directory at the **repo root**. All `./` paths below resolve from there. If you run it standalone from `skills/linkedin-performance-engine/`, prefix the paths with `../../`.
+1. **Founder Psychology Contrarian** (text)
+2. **Loaded Poll** (text)
+3. **AI News + Implications** (text)
+4. **Story-based Carousel** (visual)
+5. **Data Visual + Hook** (visual)
 
 ---
 
 ## PHASE 0 — Bootstrap
 
-### 0A: Load the content doctrine + the live performance report
+### 0A: Load the content doctrine + analytics report (if available)
 
 ```bash
 cat ./content-doctrine.md
-cat ./founderswing_linkedin_content_report.md
+cat ./founderswing_linkedin_content_report.md 2>/dev/null || echo "No analytics report found — using default archetypes."
 ```
 
-**`content-doctrine.md` is the north star** — it sets the lane (the Varun Mayya of LinkedIn) and the broadened audience (ambitious generalists, not just founders). The report is the brain for *craft* — which formats win. Hold both: write the report's winning formats, but aim them at the doctrine's wider audience and topics. Re-read the report every run; when the user drops in an updated one, the winning patterns change automatically. Every post must pass the doctrine topic filter and honor its DROP list.
+`content-doctrine.md` is the north star. Every post must pass the topic filter and honor the DROP list. Write in Akash's first-person builder voice — sharp, honest, grounded in real experience.
 
-From the report, extract and hold in working memory:
-- **WINNING_ARCHETYPES** — section 5 priority order + section 8 content mix
-- **WINNING_HOOKS** — section 9 sample hooks (model the *style*, never copy verbatim — they are already used)
-- **ANTI_PATTERNS** — section 4 "What's not working"
-- **BRAND_VOICE** — section 7 "What to preserve in generated content"
-- **AUDIENCE** — section 6 (solo founders, freelancers leaving employment, AI-curious, side-hustlers chasing first income)
+If the analytics report exists, extract winning patterns. If not, use the archetypes directly with Akash's voice.
 
-### 0B: Load voice + banned-word rules
+### 0B: Load voice rules
 
 ```bash
-cat ./voice-profile.md 2>/dev/null
 cat ./commands/linkedin-content.md 2>/dev/null
 ```
 
-The hard formatting rules from `commands/linkedin-content.md` still apply to every post here:
-- **No em-dashes anywhere.** (The report mentions bullet "•" characters — those are fine. The `—` em-dash is still banned.)
-- Banned vocabulary list applies in full (delve, leverage, game-changer, supercharge, etc.)
-- Banned LinkedIn patterns apply ("No X. No Y. Just Z.", "It's not just X, it's Y", "And here's the kicker", etc.)
-- Specific numbers over adjectives.
+Hard formatting rules from `commands/linkedin-content.md` apply:
+- No em-dashes anywhere
+- Banned vocabulary applies in full
+- Banned patterns apply
+- Specific numbers over adjectives
 
-**Voice reconciliation:** Write in the declarative, observational @founderswing LinkedIn voice — the same voice the report's winning posts use ("Every founder wants to be CEO until they actually are"). This is third-person/observational and brand-signed, NOT the personal "I"-led Twitter voice in `voice-profile.md` (that profile is for Twitter). When in doubt, match the cadence of the WINNING_HOOKS verbatim examples.
+**Voice:** First person. Akash's builder voice — not third-person, not brand-signed. Every post draws from real experience: what I built, what I learned, what I was wrong about.
 
 ### 0C: Load deduplication state
 
@@ -137,7 +129,7 @@ Apply every rule from PHASE 0B. Each archetype's formula is lifted directly from
 
 [QUESTION — A pointed debate prompt. Not "what do you think?" — something they can answer in one line.]
 
-[CTA — "Follow @founderswing for more" OR "Repost to help a founder who needs to hear this."]
+[CTA — "Follow @akashlaha for more" OR "Repost to help another builder who needs to hear this."]
 ```
 
 **Voice note:** Blunt, declarative, professional but not corporate. One uncomfortable truth per post. No hedging. This is the format that earns comments — make the reader want to argue or confess.
@@ -193,7 +185,7 @@ Apply every rule from PHASE 0B. Each archetype's formula is lifted directly from
 
 [DEBATE QUESTION — invites a real position, not agreement.]
 
-[CTA — "Follow @founderswing for more" or save-prompt.]
+[CTA — "Follow @akashlaha for more" or save-prompt.]
 ```
 
 **Anti-pattern guard (mandatory):** Before finalizing, check this post against ANTI_PATTERNS. If it reads as "Company X announced Y" with no founder consequence, it is a plain relay — rewrite it or pick a different story. Every fact must carry a "so what for *you*."
@@ -257,7 +249,7 @@ Verify every post before output:
 - [ ] Contrarian belief ∉ USED_PERF_BELIEFS. Poll topic ∉ USED_PERF_POLLS. Dataset ∉ USED_INFOGRAPHIC_TOPICS.
 
 **Voice check:**
-- [ ] Declarative @founderswing voice, matches the cadence of the report's WINNING_HOOKS.
+- [ ] First-person Akash builder voice — honest, sharp, real experience
 - [ ] At least one post uses the "Repost to help a [founder/freelancer]" CTA variant (per report section 7).
 
 ---
@@ -269,7 +261,7 @@ Print all 5 posts in this format, then save:
 ```
 ═══════════════════════════════════════════════
 LINKEDIN PERFORMANCE ENGINE — [DATE]
-Source report: founderswing_linkedin_content_report.md (analysis date inside)
+Source report: founderswing_linkedin_content_report.md (if available)
 ═══════════════════════════════════════════════
 
 ━━━ PERF 1 — FOUNDER PSYCHOLOGY CONTRARIAN ━━━
