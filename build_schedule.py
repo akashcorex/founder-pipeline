@@ -100,6 +100,9 @@ def parse_write_today_format(text):
                     clean_lines.append(line.strip())
             caption = "\n\n".join(clean_lines)
 
+        if caption and "```" in caption:
+            caption = caption.split("```")[0].strip()
+
         if caption:
             posts.append(
                 {
