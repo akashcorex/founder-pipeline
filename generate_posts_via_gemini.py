@@ -112,7 +112,7 @@ ai_news_context = ""
 for i, item in enumerate(ai_news):
     ai_news_context += f"News {i + 1} [Source: {item['source']}]:\nTitle: {item['title']}\nDescription: {item['description'][:400]}...\nURL: {item['url']}\nDate: {item['pubDate']}\n---\n"
 
-# Load content doctrine and writing rules
+# Load content doctrine, writing rules, and current project context
 content_doctrine = ""
 if os.path.exists("./content-doctrine.md"):
     with open("./content-doctrine.md") as f:
@@ -123,6 +123,11 @@ if os.path.exists("./commands/linkedin-content.md"):
     with open("./commands/linkedin-content.md") as f:
         writing_rules = f.read()
 
+project_context = ""
+if os.path.exists("./project-context.md"):
+    with open("./project-context.md") as f:
+        project_context = f.read()
+
 system_prompt = f"""
 You are Akash Laha's AI copywriter. Write a daily content batch of exactly 4 posts — Building in Public, Systems/Architecture, Carousel (7 slides + caption), and Infographic (data chart + caption) — based on today's feeds, your knowledge, and our brand guidelines.
 
@@ -130,6 +135,11 @@ You are Akash Laha's AI copywriter. Write a daily content batch of exactly 4 pos
 BRAND DOCTRINE AND BRAND POSITIONING:
 ==================================================
 {content_doctrine}
+
+==================================================
+CURRENT VENTURE CONTEXT (WHAT I AM BUILDING):
+==================================================
+{project_context}
 
 ==================================================
 WRITING RULES AND SPECIFICATIONS:
@@ -144,12 +154,12 @@ Generate exactly 4 posts using these separators. Do not include any other conten
 ==================================================
 1. BUILDING IN PUBLIC
 ==================================================
-[First person. What I built, shipped, broke, or learned. Real details.]
+[First person. What I built, shipped, broke, or learned about our current venture (the AI Job Application Autopilot/Co-pilot). Ground it in real, specific features, user experiences, or validation metrics from the current venture context.]
 
 ==================================================
 2. SYSTEMS / ARCHITECTURE
 ==================================================
-[Tradeoff, design decision, or pattern. Problem -> options -> choice -> outcome.]
+[A backend design decision, tradeoff, or pattern I wrestled with for our AI Job Application Autopilot/Co-pilot (e.g., RAG-based resume matching vs free LLM generation, ReAct execution loops for forms, DOM adapter decoupling in the monorepo, or request pacing and concurrency controls to bypass DataDome/Cloudflare). Problem -> options -> choice -> outcome.]
 
 ==================================================
 3. CAROUSEL
