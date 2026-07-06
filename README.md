@@ -1,4 +1,4 @@
-# Multi-Platform Content Pipeline — Akash Laha
+# Founder Pipeline — Akash Laha
 
 > Generates content from Reddit + tech news + personal experience. Uses `content-engine` for voice, `crosspost` for LinkedIn/X adaptation, and Buffer for scheduling. Gen Z dark aesthetic for all visual assets.
 
