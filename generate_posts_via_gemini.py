@@ -1,25 +1,26 @@
-import os
-import json
-import urllib.request
-import urllib.parse
-import ssl
-import sys
+"""
+Generates the day's LinkedIn text posts + carousel/infographic layout JSON
+by calling Google's Gemini API directly.
+
+Note: despite the historical filename this script used to have
+(`generate_posts_via_openrouter.py`), it does NOT call OpenRouter — it calls
+`generativelanguage.googleapis.com` with `GEMINI_API_KEY`. `correct_posts.py`
+is the script that actually uses OpenRouter (`OPENROUTER_API_KEY`).
+"""
+
 import datetime
+import json
+import os
+import sys
 import traceback
+import urllib.parse
+import urllib.request
 
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
+from env_utils import get_env, new_ssl_context
 
-# Read Gemini API key from .env
-gemini_key = None
-env_path = "./.env"
-with open(env_path) as f:
-    for line in f:
-        if line.startswith("GEMINI_API_KEY="):
-            gemini_key = line.strip().split("=", 1)[1]
-            break
+ctx = new_ssl_context()
 
+gemini_key = get_env("GEMINI_API_KEY")
 if not gemini_key:
     print("Error: GEMINI_API_KEY not found in .env")
     exit(1)
@@ -52,17 +53,22 @@ try:
     if os.path.exists("./infographic-run-log.json"):
         with open("./infographic-run-log.json") as f:
             info_log = json.load(f)
-            
+
         # Last 14 topics are banned
-        banned_infographic_topics = [entry["topic"] for entry in info_log[-14:] if "topic" in entry]
-        
+        banned_infographic_topics = [
+            entry["topic"] for entry in info_log[-14:] if "topic" in entry
+        ]
+
         # Last 5 formats tally
-        recent_formats = [entry["format"] for entry in info_log[-5:] if "format" in entry]
+        recent_formats = [
+            entry["format"] for entry in info_log[-5:] if "format" in entry
+        ]
         if recent_formats:
             # Last format is banned
             banned_infographic_formats.append(recent_formats[-1])
             # 3+ times count in last 5 runs
             from collections import Counter
+
             counts = Counter(recent_formats)
             for fmt, count in counts.items():
                 if count >= 3 and fmt not in banned_infographic_formats:
@@ -76,13 +82,16 @@ try:
     if os.path.exists("./carousel-hook-log.json"):
         with open("./carousel-hook-log.json") as f:
             car_log = json.load(f)
-            
-        recent_hooks = [entry["hook_style"] for entry in car_log[-7:] if "hook_style" in entry]
+
+        recent_hooks = [
+            entry["hook_style"] for entry in car_log[-7:] if "hook_style" in entry
+        ]
         if recent_hooks:
             # Last hook is banned
             banned_carousel_hooks.append(recent_hooks[-1])
             # 3+ times count in last 7 runs
             from collections import Counter
+
             counts = Counter(recent_hooks)
             for hook, count in counts.items():
                 if count >= 3 and hook not in banned_carousel_hooks:
@@ -97,11 +106,11 @@ print("Banned Carousel Hook Styles:", banned_carousel_hooks)
 # Format context strings
 reddit_context = ""
 for i, post in enumerate(reddit_posts):
-    reddit_context += f"Post {i+1} [Subreddit: {post['subreddit']}]:\nTitle: {post['title']}\nContent: {post['selftext'][:400]}...\n---\n"
+    reddit_context += f"Post {i + 1} [Subreddit: {post['subreddit']}]:\nTitle: {post['title']}\nContent: {post['selftext'][:400]}...\n---\n"
 
 ai_news_context = ""
 for i, item in enumerate(ai_news):
-    ai_news_context += f"News {i+1} [Source: {item['source']}]:\nTitle: {item['title']}\nDescription: {item['description'][:400]}...\nURL: {item['url']}\nDate: {item['pubDate']}\n---\n"
+    ai_news_context += f"News {i + 1} [Source: {item['source']}]:\nTitle: {item['title']}\nDescription: {item['description'][:400]}...\nURL: {item['url']}\nDate: {item['pubDate']}\n---\n"
 
 system_prompt = """
 You are Akash Laha's AI copywriter. Write a daily content batch of exactly 4 posts — Building in Public, Systems/Architecture, Carousel (7 slides + caption), and Infographic (data chart + caption) — based on today's feeds and your knowledge.
@@ -203,11 +212,11 @@ AI NEWS FEED:
 {ai_news_context}
 
 BANNED CAROUSEL HOOK STYLES (DO NOT USE THESE FOR POST 3 CAROUSEL SLIDE 1):
-{', '.join(banned_carousel_hooks) if banned_carousel_hooks else 'None'}
+{", ".join(banned_carousel_hooks) if banned_carousel_hooks else "None"}
 Please select from: I Was Wrong, Number Reveal, System Breakdown, Mistake Story, Before/After, Unpopular Opinion, Build Log, Trade-off.
 
 BANNED INFOGRAPHIC FORMATS (DO NOT USE THESE FOR POST 4):
-{', '.join(banned_infographic_formats) if banned_infographic_formats else 'None'}
+{", ".join(banned_infographic_formats) if banned_infographic_formats else "None"}
 Please select from: DONUT_BREAKDOWN, TIMELINE_SHIFT, COMPARISON_SPLIT, HERO_NUMBER.
 
 BANNED INFOGRAPHIC TOPICS (DO NOT OVERLAP WITH THESE):
@@ -256,46 +265,30 @@ Output as a single valid JSON object. No markdown code blocks. No text before or
 """
 
 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={gemini_key}"
-headers = {
-    "Content-Type": "application/json"
-}
+headers = {"Content-Type": "application/json"}
+
 
 def make_call(system_p, user_p, max_t=4000):
     payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": user_p
-                    }
-                ]
-            }
-        ],
-        "systemInstruction": {
-            "parts": [
-                {
-                    "text": system_p
-                }
-            ]
-        },
-        "generationConfig": {
-            "maxOutputTokens": max_t
-        }
+        "contents": [{"role": "user", "parts": [{"text": user_p}]}],
+        "systemInstruction": {"parts": [{"text": system_p}]},
+        "generationConfig": {"maxOutputTokens": max_t},
     }
-    
+
     req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
     )
-    
+
     try:
         print("Calling Google Gemini 3.5 Flash...")
         with urllib.request.urlopen(req, context=ctx) as res:
             resp = json.loads(res.read().decode("utf-8"))
-            if resp and isinstance(resp, dict) and "candidates" in resp and len(resp["candidates"]) > 0:
+            if (
+                resp
+                and isinstance(resp, dict)
+                and "candidates" in resp
+                and len(resp["candidates"]) > 0
+            ):
                 return resp["candidates"][0]["content"]["parts"][0]["text"]
             else:
                 print(f"Gemini returned unexpected response: {resp}")
@@ -310,9 +303,10 @@ def make_call(system_p, user_p, max_t=4000):
         print(f"Error calling Gemini: {e}")
     return None
 
+
 # Step 1: Generate LinkedIn text posts
 print("Starting Step 1: Generating text posts...")
-post_text = make_call(system_prompt, prompt, max_t=4000)
+post_text = make_call(system_prompt, prompt, max_t=8192)
 
 if not post_text:
     print("Error: Failed to generate LinkedIn posts.")
@@ -329,7 +323,7 @@ print(f"Text posts saved to linkedin_posts_{date_compact}.txt")
 # Step 2: Extract visuals JSON data based on generated text posts
 print("Starting Step 2: Extracting visuals layout JSON...")
 json_prompt = f"Here are the generated LinkedIn posts:\n\n{post_text}\n\nGenerate the Carousel and Infographic JSON now."
-json_data_str = make_call(system_prompt_json, json_prompt, max_t=2000)
+json_data_str = make_call(system_prompt_json, json_prompt, max_t=8192)
 
 if json_data_str:
     try:
@@ -342,19 +336,19 @@ if json_data_str:
         if json_data_str.endswith("```"):
             json_data_str = json_data_str[:-3]
         json_data_str = json_data_str.strip()
-        
+
         layout_data = json.loads(json_data_str)
-        
+
         # Save carousel_data.json
         with open("./carousel_data.json", "w") as f:
             json.dump(layout_data.get("carousel", {}), f, indent=2)
         print("Saved carousel_data.json")
-        
+
         # Save infographic_data.json
         with open("./infographic_data.json", "w") as f:
             json.dump(layout_data.get("infographic", {}), f, indent=2)
         print("Saved infographic_data.json")
-        
+
     except Exception as e:
         print(f"Error parsing JSON block from response: {e}")
         print("Raw JSON string attempted:")

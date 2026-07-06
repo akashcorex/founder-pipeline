@@ -10,6 +10,7 @@ Requires Node.js and Puppeteer (available from carousel-routine/node_modules).
 """
 
 import argparse
+import json
 import subprocess
 import sys
 import tempfile

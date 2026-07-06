@@ -34,57 +34,52 @@ The schedule file JSON format:
 Times are converted from IST (UTC+5:30) to UTC for the Buffer API.
 """
 
-import os
+import argparse
 import json
 import sys
-import argparse
 from datetime import datetime, timedelta, timezone
 
 from buffer_client import create_post, get_channels, get_organizations
-
+from env_utils import get_env
 
 IST_OFFSET = timedelta(hours=5, minutes=30)
 UTC = timezone.utc
 
+# LinkedIn hard-truncates/rejects posts beyond this length.
+LINKEDIN_MAX_CHARS = 3000
+# Buffer/X reject plain (non-thread) posts beyond this length.
+X_MAX_CHARS = 280
+
 
 def parse_time_ist_to_utc(date_str, time_ist):
     """Convert IST date + time to ISO 8601 UTC string."""
-    clean_time = time_ist.strip().upper().replace("\u202F", " ").replace("\u00A0", " ")
+    clean_time = time_ist.strip().upper().replace("\u202f", " ").replace("\u00a0", " ")
     dt_ist = datetime.strptime(f"{date_str} {clean_time}", "%Y-%m-%d %I:%M %p")
     dt_ist = dt_ist.replace(tzinfo=timezone(IST_OFFSET))
     dt_utc = dt_ist.astimezone(UTC)
     return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def load_env_channels():
-    """Read channel IDs from .env if available."""
-    env_vars = {}
-    env_path = "./.env"
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, val = line.partition("=")
-                    env_vars[key.strip()] = val.strip().strip('"').strip("'")
-    return {
-        "linkedin": env_vars.get("BUFFER_LINKEDIN_CHANNEL_ID"),
-        "x": env_vars.get("BUFFER_X_CHANNEL_ID"),
-    }
-
-
 def fetch_channel_ids():
-    """Fetch channel IDs from Buffer API and detect LinkedIn + X channels."""
+    """Fetch channel IDs from Buffer API and detect LinkedIn + X channels.
+
+    `BUFFER_LINKEDIN_CHANNEL_ID` / `BUFFER_X_CHANNEL_ID` (from `.env` or the
+    real environment) always win over auto-detection, as documented in
+    README.md.
+    """
+    env_linkedin_id = get_env("BUFFER_LINKEDIN_CHANNEL_ID")
+    env_x_id = get_env("BUFFER_X_CHANNEL_ID")
+
     print("Fetching organizations and channels from Buffer...")
     try:
         orgs = get_organizations()
     except Exception as e:
         print(f"Error fetching organizations: {e}")
-        return None, None, None
+        return None, env_linkedin_id, env_x_id
 
     if not orgs:
         print("No organizations found.")
-        return None, None, None
+        return None, env_linkedin_id, env_x_id
 
     org = orgs[0]
     org_id = org["id"]
@@ -92,8 +87,8 @@ def fetch_channel_ids():
     print(f"Organization: {org_name} ({org_id})")
 
     channels = get_channels(org_id)
-    linkedin_id = None
-    x_id = None
+    linkedin_id = env_linkedin_id
+    x_id = env_x_id
 
     for ch in channels:
         service = ch["service"]
@@ -103,6 +98,10 @@ def fetch_channel_ids():
         elif service == "twitter" and not x_id:
             x_id = ch["id"]
 
+    if env_linkedin_id:
+        print(f"Using BUFFER_LINKEDIN_CHANNEL_ID override: {env_linkedin_id}")
+    if env_x_id:
+        print(f"Using BUFFER_X_CHANNEL_ID override: {env_x_id}")
     if not linkedin_id:
         print("WARNING: No LinkedIn channel found in Buffer account.")
     if not x_id:
@@ -145,14 +144,14 @@ def schedule_posts(schedule, linkedin_id, x_id, dry_run=False):
         first_comment = post.get("linkedin_first_comment", "")
 
         if not caption:
-            print(f"Post {i+1}: SKIP (empty caption)")
+            print(f"Post {i + 1}: SKIP (empty caption)")
             continue
 
         due_at = None
         if date_str and time_ist:
             due_at = parse_time_ist_to_utc(date_str, time_ist)
         else:
-            print(f"Post {i+1}: SKIP (missing date or time)")
+            print(f"Post {i + 1}: SKIP (missing date or time)")
             continue
 
         assets = build_assets(media_urls)
@@ -163,16 +162,27 @@ def schedule_posts(schedule, linkedin_id, x_id, dry_run=False):
                 ("X", x_ch_id, None),
             ]
         elif target == "linkedin":
-            channels_to_post = [("LinkedIn", li_id, first_comment if first_comment else None)]
+            channels_to_post = [
+                ("LinkedIn", li_id, first_comment if first_comment else None)
+            ]
         elif target == "x":
             channels_to_post = [("X", x_ch_id, None)]
 
         for platform, channel_id, comment in channels_to_post:
             if not channel_id:
-                print(f"Post {i+1}: SKIP {platform} (no channel ID)")
+                print(f"Post {i + 1}: SKIP {platform} (no channel ID)")
                 continue
 
-            label = f"Post {i+1}/{len(posts)} | {platform} | {date_str} {time_ist} IST"
+            label = (
+                f"Post {i + 1}/{len(posts)} | {platform} | {date_str} {time_ist} IST"
+            )
+
+            limit = LINKEDIN_MAX_CHARS if platform == "LinkedIn" else X_MAX_CHARS
+            if len(caption) > limit and not assets:
+                print(
+                    f"  WARNING: {label} caption is {len(caption)} chars, "
+                    f"over the {platform} limit of {limit}. Buffer may reject or truncate this post."
+                )
 
             metadata = None
             if platform == "LinkedIn" and comment:
@@ -256,7 +266,9 @@ def main():
             "type": "image" if args.media else "text",
             "date": args.date or datetime.now().strftime("%Y-%m-%d"),
             "time_ist": args.time_ist or "9:00 AM",
-            "target": "both" if (args.linkedin and args.x) else ("linkedin" if args.linkedin else "x"),
+            "target": "both"
+            if (args.linkedin and args.x)
+            else ("linkedin" if args.linkedin else "x"),
             "media_urls": args.media,
         }
         if args.comment:
@@ -279,7 +291,9 @@ def main():
 
     result = schedule_posts(schedule, linkedin_id, x_id, dry_run=args.dry_run)
 
-    print(f"\nDone. Scheduled: {len(result['scheduled'])}, Errors: {len(result['errors'])}")
+    print(
+        f"\nDone. Scheduled: {len(result['scheduled'])}, Errors: {len(result['errors'])}"
+    )
     if result["errors"]:
         print("Errors:")
         for e in result["errors"]:

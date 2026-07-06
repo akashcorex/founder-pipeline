@@ -1,37 +1,20 @@
-import os
 import json
+import urllib.error
 import urllib.request
-import ssl
+
+from env_utils import get_env, new_ssl_context
 
 BUFFER_API_URL = "https://api.buffer.com"
 
 
-def _load_env_vars():
-    env_vars = {}
-    env_path = "./.env"
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, val = line.partition("=")
-                    env_vars[key.strip()] = val.strip().strip('"').strip("'")
-    return env_vars
-
-
 def _graphql_request(query, variables=None):
-    env_vars = _load_env_vars()
-    api_key = env_vars.get("BUFFER_API_KEY")
-    if not api_key:
-        raise RuntimeError("BUFFER_API_KEY not found in .env")
+    api_key = get_env("BUFFER_API_KEY", required=True)
 
     body = {"query": query}
     if variables:
         body["variables"] = variables
 
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    ctx = new_ssl_context()
 
     req = urllib.request.Request(
         BUFFER_API_URL,
@@ -43,8 +26,17 @@ def _graphql_request(query, variables=None):
         method="POST",
     )
 
-    with urllib.request.urlopen(req, context=ctx) as res:
-        result = json.loads(res.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, context=ctx) as res:
+            result = json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            error_body = e.read().decode("utf-8")
+            print(f"Buffer HTTP Error {e.code}: {e.reason}")
+            print(f"Response: {error_body}")
+        except Exception:
+            pass
+        raise
 
     if result.get("errors"):
         error = result["errors"][0]
@@ -71,7 +63,7 @@ def get_organizations():
 
 def get_channels(organization_id):
     query = """
-    query GetChannels($orgId: String!) {
+    query GetChannels($orgId: OrganizationId!) {
       channels(input: { organizationId: $orgId }) {
         id
         name
@@ -83,7 +75,9 @@ def get_channels(organization_id):
     return data["channels"]
 
 
-def create_post(channel_id, text, due_at=None, mode="customScheduled", assets=None, metadata=None):
+def create_post(
+    channel_id, text, due_at=None, mode="customScheduled", assets=None, metadata=None
+):
     scheduling_type = "automatic"
     if mode == "addToQueue":
         scheduling_type = "automatic"
@@ -161,7 +155,7 @@ def get_posts(organization_id, status_filter=None, channel_ids=None, first=50):
         filter_input["channelIds"] = channel_ids
 
     query = """
-    query GetPosts($orgId: String!, $first: Int!, $filter: PostsFilterInput) {
+    query GetPosts($orgId: OrganizationId!, $first: Int!, $filter: PostsFilterInput) {
       posts(
         first: $first,
         input: { organizationId: $orgId, filter: $filter }

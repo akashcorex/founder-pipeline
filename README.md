@@ -14,15 +14,18 @@
 
 ### API Keys (stored in `.env`)
 ```
-OPENROUTER_API_KEY=...      # For LLM post generation
-ANTHROPIC_API_KEY=...       # Alternative LLM provider
-SCRAPINGDOG_API_KEY=...     # Optional: for X/Twitter research
-BUFFER_API_KEY=...          # Buffer API key for scheduling posts
-BUFFER_LINKEDIN_CHANNEL_ID= # Optional: LinkedIn channel ID override
-BUFFER_X_CHANNEL_ID=        # Optional: X/Twitter channel ID override
+GEMINI_API_KEY=...          # Required: post + visual-layout generation (generate_posts_via_gemini.py)
+BUFFER_API_KEY=...          # Required: Buffer API key for scheduling posts
+APIFY_API_KEY=...           # Optional: primary Reddit fetch method (fetch_reddit_apify.py). Falls back to JSON/RSS scraping if absent.
+OPENROUTER_API_KEY=...      # Optional: banned-word correction pass (correct_posts.py). Pipeline still runs without it.
+SCRAPINGDOG_API_KEY=...     # Optional: for X/Twitter research (used by the linkedin-ai-news-engine skill, not by any .py script)
+BUFFER_LINKEDIN_CHANNEL_ID= # Optional: LinkedIn channel ID override (auto-detected otherwise)
+BUFFER_X_CHANNEL_ID=        # Optional: X/Twitter channel ID override (auto-detected otherwise)
 ```
 
-> Channel IDs are auto-detected from your Buffer account. Set these env vars only to override.
+> Channel IDs are auto-detected from your Buffer account. Set the two `BUFFER_*_CHANNEL_ID` vars only if you need to override auto-detection (e.g. multiple LinkedIn channels on the account) — `schedule_via_buffer.py` reads them first and only falls back to auto-detection if they're unset.
+
+> `.env` is loaded once via `env_utils.py`, which resolves the file relative to the project root (not your current shell directory) and lets real exported environment variables override `.env` values. All scripts share this loader — there's no more per-file, hand-rolled `.env` parsing, and no more disabled SSL certificate verification (a previous version of every network script disabled TLS verification entirely; `env_utils.new_ssl_context()` now uses a normal, verifying SSL context everywhere).
 
 ### NPM Dependencies
 ```bash
@@ -56,7 +59,7 @@ cd carousel-routine && npm install
 │  PHASE 5: SCHEDULING (via Buffer API)                │
 │  ├── build_schedule.py: assemble schedule.json       │
 │  ├── schedule_via_buffer.py: push to Buffer          │
-│  └── LinkedIn + X, 3 days, IST times                 │
+│  └── LinkedIn by default (X opt-in), 3 days, IST     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -92,9 +95,8 @@ cd carousel-routine && npm install
 
 | File | Purpose |
 |------|---------|
-| `generate_posts_via_openrouter.py` | LLM post generation via OpenRouter/Gemini |
-| `write_today_data.py` | Master script: combine posts into output file |
-| `correct_posts.py` | Post-processing: fix banned words, formatting |
+| `generate_posts_via_gemini.py` | LLM post + visual-layout generation via Google Gemini (name reflects what it actually calls) |
+| `correct_posts.py` | Post-processing: fix banned words via OpenRouter |
 
 ### 🎨 Visual Assets
 
@@ -113,11 +115,13 @@ cd carousel-routine && npm install
 
 | File | Purpose |
 |------|---------|
+| `run_pipeline.py` | **One-command orchestrator** — fetch → generate → correct → build schedule → dry-run/schedule via Buffer |
 | `buffer_client.py` | Buffer GraphQL API client |
-| `schedule_via_buffer.py` | Schedule posts to LinkedIn + X |
+| `schedule_via_buffer.py` | Schedule posts to LinkedIn (+ X, opt-in) |
 | `build_schedule.py` | Build schedule.json from pipeline output |
 | `schedule.json.example` | Example schedule format |
 | `buffer.md` | Buffer API reference docs |
+| `env_utils.py` | Shared `.env` loader + verifying SSL context, used by every script that calls a network API |
 
 ### 📋 State & Log Files
 | File | Purpose |
@@ -132,6 +136,33 @@ cd carousel-routine && npm install
 ---
 
 ## How to Run
+
+### Quick Start — one command
+
+For the scriptable part of the pipeline (fetch → generate → correct → build schedule → preview/schedule via Buffer), use `run_pipeline.py` instead of running each phase by hand:
+
+```bash
+# Safe by default: fetches, generates, and shows exactly what WOULD be scheduled.
+# Nothing is posted to Buffer until you pass --live.
+python3 run_pipeline.py
+
+# Actually schedule the previewed posts to Buffer (LinkedIn only, by default)
+python3 run_pipeline.py --live
+
+# Reuse already-fetched data instead of re-scraping Reddit/AI news
+python3 run_pipeline.py --skip-fetch --live
+
+# Attach hosted carousel/infographic images (see Phase 3 below for how to render them)
+python3 run_pipeline.py --carousel-url https://... --infographic-url https://... --live
+```
+
+This covers Phases 1, 2 (LLM path), and 5. It does **not** render carousel/infographic
+visuals (Phase 3) or hand-craft distinct X copy (Phase 4) — those remain
+creative/agent-assisted steps, described below. Without a hosted image URL, the
+carousel/infographic posts are simply scheduled as text-only.
+
+The rest of this section documents each phase individually, for the manual /
+agent-driven (SKILL.md) workflow, or if you want to run a single phase on its own.
 
 ### Phase 1: Fetch Data
 ```bash
@@ -157,7 +188,7 @@ The AI agent follows skill instructions:
 
 Or use the LLM script:
 ```bash
-python3 generate_posts_via_openrouter.py
+python3 generate_posts_via_gemini.py
 ```
 
 ### Phase 3: Build Visual Assets
@@ -185,17 +216,22 @@ AI agent runs `skills/crosspost/SKILL.md` to produce platform-specific versions:
 
 ### Phase 5: Schedule via Buffer
 ```bash
-# Build schedule.json from generated posts
+# Build schedule.json from generated posts (LinkedIn only, by default)
 python3 build_schedule.py
+
+# Opt into crossposting to X too — only do this if you've actually written
+# separate, X-length copy per the crosspost skill. Otherwise the same
+# LinkedIn-length caption gets sent to X as-is and will likely be rejected.
+python3 build_schedule.py --target both
 
 # Preview (dry run)
 python3 schedule_via_buffer.py --schedule-file schedule.json --dry-run
 
-# Schedule all posts to LinkedIn + X
+# Schedule all posts
 python3 schedule_via_buffer.py --schedule-file schedule.json
 ```
 
-Posts are scheduled via Buffer's GraphQL API with `customScheduled` mode at the specified IST times (auto-converted to UTC). Both LinkedIn and X channels are targeted by default. Media images require publicly hosted URLs — upload to Cloudinary, Cloudflare R2, or similar before scheduling.
+Posts are scheduled via Buffer's GraphQL API with `customScheduled` mode at the specified IST times (auto-converted to UTC). **LinkedIn is the default and only target** — this is a LinkedIn-first pipeline, posts are written at LinkedIn length (800–1500 chars), and there's no automated per-platform copy adaptation, so blasting the same text to X by default was more likely to break posts than help. Pass `--target both` to `build_schedule.py` once you've wired in real X-adapted copy. `schedule_via_buffer.py` also now warns if a caption exceeds LinkedIn's (~3000 char) or X's (~280 char) limits before sending. Media images require publicly hosted URLs — upload to Cloudinary, Cloudflare R2, or similar before scheduling.
 
 **To list available channels:**
 ```bash
@@ -204,7 +240,7 @@ python3 schedule_via_buffer.py --list-channels
 
 ---
 
-## Post Schedule (4 posts/day × 3 days → LinkedIn + X)
+## Post Schedule (4 posts/day × 3 days → LinkedIn by default, X opt-in)
 
 | Day | Time (IST) | Post Type | Content Source |
 |-----|-----------|-----------|---------------|
@@ -224,7 +260,7 @@ python3 schedule_via_buffer.py --list-channels
 
 ### ⚠️ Cadence caveat (from the analytics report)
 
-The `founderswing_linkedin_content_report.md` is explicit that the account's current ~25-35 posts/week is **suppressing reach** and recommends **≤7 posts/week**. This pipeline produces 16 posts/day, which runs against that finding. The performance posts were added per an explicit "add on top" decision; the volume-reduction recommendation is intentionally **deferred, not resolved.** Revisit whether to cut overall cadence before scaling output further.
+`skills/linkedin-performance-engine/SKILL.md` (Step 7) reads an optional `founderswing_linkedin_content_report.md` file for performance-post input. **This report is not included in the repo** — it's an external analytics export you supply yourself; without it, Step 7 has nothing to reason about and performance posts should be skipped. That report (when supplied) was explicit that the account's current ~25-35 posts/week is **suppressing reach** and recommends **≤7 posts/week**. This pipeline produces 16 posts/day, which runs against that finding. The performance posts were added per an explicit "add on top" decision; the volume-reduction recommendation is intentionally **deferred, not resolved.** Revisit whether to cut overall cadence before scaling output further.
 
 ---
 

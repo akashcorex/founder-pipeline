@@ -1,24 +1,14 @@
-import os
-import json
-import urllib.request
-import urllib.parse
-import ssl
 import datetime
+import json
 import time
+import urllib.parse
+import urllib.request
 
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
+from env_utils import get_env, new_ssl_context
 
-# Read OpenRouter API key from .env
-openrouter_key = None
-env_path = "./.env"
-with open(env_path) as f:
-    for line in f:
-        if line.startswith("OPENROUTER_API_KEY="):
-            openrouter_key = line.strip().split("=", 1)[1]
-            break
+ctx = new_ssl_context()
 
+openrouter_key = get_env("OPENROUTER_API_KEY")
 if not openrouter_key:
     print("Error: OPENROUTER_API_KEY not found in .env")
     exit(1)
@@ -27,7 +17,8 @@ if not openrouter_key:
 with open("./linkedin_posts_today.txt", "r") as f:
     draft_content = f.read()
 
-correction_prompt = """
+correction_prompt = (
+    """
 You are a professional LinkedIn editor. Edit the following draft of 11 LinkedIn posts to make the following corrections:
 
 1. In Post 4 (Unfair Advantage):
@@ -45,45 +36,44 @@ You are a professional LinkedIn editor. Edit the following draft of 11 LinkedIn 
 4. Keep the exact output formatting, separators, and headings. Output ONLY the 11 posts, with no other text.
 
 Here is the current draft:
-""" + draft_content
+"""
+    + draft_content
+)
 
 url = "https://openrouter.ai/api/v1/chat/completions"
 headers = {
     "Authorization": f"Bearer {openrouter_key}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
 payload = {
     "model": "google/gemma-4-31b-it:free",
     "max_tokens": 4000,
-    "messages": [
-        {"role": "user", "content": correction_prompt}
-    ]
+    "messages": [{"role": "user", "content": correction_prompt}],
 }
 
 req = urllib.request.Request(
-    url,
-    data=json.dumps(payload).encode("utf-8"),
-    headers=headers,
-    method="POST"
+    url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
 )
 
 # Retry logic for OpenRouter transient errors and rate limits
 success = False
 for attempt in range(5):
     try:
-        print(f"Calling OpenRouter to apply corrections (attempt {attempt+1}/5)...")
+        print(f"Calling OpenRouter to apply corrections (attempt {attempt + 1}/5)...")
         with urllib.request.urlopen(req, context=ctx) as res:
             resp = json.loads(res.read().decode("utf-8"))
             corrected_text = resp["choices"][0]["message"]["content"]
-            
+
             # Save to today and date_compact paths
             date_compact = datetime.date.today().isoformat().replace("-", "")
             with open("./linkedin_posts_today.txt", "w") as f:
                 f.write(corrected_text)
             with open(f"./linkedin_posts_{date_compact}.txt", "w") as f:
                 f.write(corrected_text)
-            print(f"Corrected posts saved to linkedin_posts_today.txt and linkedin_posts_{date_compact}.txt")
+            print(
+                f"Corrected posts saved to linkedin_posts_today.txt and linkedin_posts_{date_compact}.txt"
+            )
             success = True
             break
     except urllib.error.HTTPError as e:
