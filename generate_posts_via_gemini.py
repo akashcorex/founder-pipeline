@@ -11,6 +11,7 @@ is the script that actually uses OpenRouter (`OPENROUTER_API_KEY`).
 import datetime
 import json
 import os
+import time
 import sys
 import traceback
 import urllib.parse
@@ -24,6 +25,11 @@ gemini_key = get_env("GEMINI_API_KEY")
 if not gemini_key:
     print("Error: GEMINI_API_KEY not found in .env")
     exit(1)
+
+GEMINI_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-2.0-flash",
+]
 
 # Load Reddit posts data (keep top 15 posts to stay within context limits and keep focus)
 reddit_posts = []
@@ -267,23 +273,27 @@ Output as a single valid JSON object. No markdown code blocks. No text before or
 }
 """
 
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={gemini_key}"
 headers = {"Content-Type": "application/json"}
 
 
-def make_call(system_p, user_p, max_t=4000):
+def _call_gemini(model_name, system_p, user_p, max_t=4000):
     payload = {
         "contents": [{"role": "user", "parts": [{"text": user_p}]}],
         "systemInstruction": {"parts": [{"text": system_p}]},
         "generationConfig": {"maxOutputTokens": max_t},
     }
 
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model_name}:generateContent?key={gemini_key}"
+    )
+
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
     )
 
     try:
-        print("Calling Google Gemini 3.5 Flash...")
+        print(f"Calling Google Gemini model: {model_name}...")
         with urllib.request.urlopen(req, context=ctx) as res:
             resp = json.loads(res.read().decode("utf-8"))
             if (
@@ -295,6 +305,7 @@ def make_call(system_p, user_p, max_t=4000):
                 return resp["candidates"][0]["content"]["parts"][0]["text"]
             else:
                 print(f"Gemini returned unexpected response: {resp}")
+            return None
     except urllib.error.HTTPError as e:
         print(f"HTTP Error calling Gemini: {e.code} - {e.reason}")
         try:
@@ -304,6 +315,29 @@ def make_call(system_p, user_p, max_t=4000):
     except Exception as e:
         traceback.print_exc()
         print(f"Error calling Gemini: {e}")
+    return None
+
+
+def make_call(system_p, user_p, max_t=4000, retries=3):
+    for model_index, model_name in enumerate(GEMINI_MODELS):
+        attempts = retries if model_index == 0 else 1
+        for attempt in range(1, attempts + 1):
+            result = _call_gemini(model_name, system_p, user_p, max_t=max_t)
+            if result:
+                return result
+
+            if attempt < attempts:
+                delay_seconds = 2 ** (attempt - 1)
+                print(
+                    f"Retrying {model_name} in {delay_seconds}s (attempt {attempt + 1}/{attempts})..."
+                )
+                time.sleep(delay_seconds)
+
+        if model_index < len(GEMINI_MODELS) - 1:
+            print(
+                f"Primary Gemini model {model_name} did not respond; trying fallback model {GEMINI_MODELS[model_index + 1]}..."
+            )
+
     return None
 
 
