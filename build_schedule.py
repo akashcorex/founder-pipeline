@@ -33,7 +33,8 @@ def parse_write_today_format(text):
     [caption content, may include CAROUSEL CAPTION: or INFOGRAPHIC CAPTION:]
     """
     posts = []
-    raw_sections = text.split("==================================================")
+    raw_sections = text.split(
+        "==================================================")
     chunks = [s.strip() for s in raw_sections if s.strip()]
 
     # The delimiter isolates each numbered header ("N. POST TYPE") into its
@@ -65,7 +66,8 @@ def parse_write_today_format(text):
         media_urls = []
 
         if "CAROUSEL CAPTION:" in body:
-            caption_start = body.index("CAROUSEL CAPTION:") + len("CAROUSEL CAPTION:")
+            caption_start = body.index(
+                "CAROUSEL CAPTION:") + len("CAROUSEL CAPTION:")
             caption = body[caption_start:].strip()
             if "INFOGRAPHIC CAPTION:" in caption:
                 caption = caption.split("INFOGRAPHIC CAPTION:")[0].strip()
@@ -160,9 +162,9 @@ def build_schedule(
     """
     Assemble the full 3-day schedule.
     Schedule (IST times):
-      Day 1 (today):     9AM Carousel | 12PM Infographic | 3PM Text | 6PM Text
-      Day 2 (tomorrow):  9AM-6PM: 4 AI News posts
-      Day 3 (day after): 9AM-3PM: 3 AI News posts
+            Day 1 (today):     9AM Text | 3PM Text
+            Day 2 (tomorrow):  9AM Text | 3PM Text
+            Day 3 (day after): 9AM Text | 3PM Text
     Performance posts get their own slots if available.
 
     `target` defaults to "linkedin" (this is a LinkedIn-first pipeline, and
@@ -193,9 +195,9 @@ def build_schedule(
     if not reddit_posts and not ai_news_posts and not perf_posts:
         return schedule_posts
 
-    # Day 1: 4 Reddit-based posts
-    day1_slots = ["9:00 AM", "12:00 PM", "3:00 PM", "6:00 PM"]
-    for idx, post in enumerate(reddit_posts[:4]):
+    # Day 1: 2 Reddit-based posts
+    day1_slots = ["9:00 AM", "3:00 PM"]
+    for idx, post in enumerate(reddit_posts[:2]):
         time_slot = day1_slots[idx] if idx < len(day1_slots) else "9:00 AM"
         media = []
         ptype = post.get("type", "text")
@@ -209,14 +211,14 @@ def build_schedule(
 
         add_post(post["caption"], ptype, 0, time_slot, media)
 
-    # Day 2: Next 4 posts (AI news)
+    # Day 2: Next 2 posts (AI news)
     day2_start = len(reddit_posts)
-    for idx, post in enumerate(ai_news_posts[:4]):
+    for idx, post in enumerate(ai_news_posts[:2]):
         time_slot = day1_slots[idx] if idx < len(day1_slots) else "9:00 AM"
         add_post(post["caption"], post.get("type", "text"), 1, time_slot)
 
-    # Day 3: Remaining AI news (up to 3)
-    remaining_ai = ai_news_posts[4:7]
+    # Day 3: Remaining AI news (up to 2)
+    remaining_ai = ai_news_posts[2:4]
     for idx, post in enumerate(remaining_ai):
         time_slot = day1_slots[idx] if idx < len(day1_slots) else "9:00 AM"
         add_post(post["caption"], post.get("type", "text"), 2, time_slot)
@@ -225,7 +227,8 @@ def build_schedule(
     for idx, post in enumerate(perf_posts):
         time_slot = "6:00 PM" if idx == 0 else "9:00 AM"
         day_offset = 3 if idx == 0 else 4
-        add_post(post["caption"], post.get("type", "text"), day_offset, time_slot)
+        add_post(post["caption"], post.get(
+            "type", "text"), day_offset, time_slot)
 
     return schedule_posts
 
@@ -246,8 +249,10 @@ def main():
         default="./linkedin_posts_today.txt",
         help="Reddit-based posts file",
     )
-    parser.add_argument("--ai-news-file", default=None, help="AI news posts file")
-    parser.add_argument("--perf-file", default=None, help="Performance posts file")
+    parser.add_argument("--ai-news-file", default=None,
+                        help="AI news posts file")
+    parser.add_argument("--perf-file", default=None,
+                        help="Performance posts file")
     parser.add_argument(
         "--carousel-url", default=None, help="Public URL for carousel image"
     )
@@ -286,7 +291,8 @@ def main():
     args = parser.parse_args()
 
     posts_text = read_file_safe(args.posts_file)
-    ai_news_text = read_file_safe(args.ai_news_file) if args.ai_news_file else ""
+    ai_news_text = read_file_safe(
+        args.ai_news_file) if args.ai_news_file else ""
     perf_text = read_file_safe(args.perf_file) if args.perf_file else ""
 
     if not posts_text and not ai_news_text and not perf_text:
@@ -305,9 +311,11 @@ def main():
                 fmt = "plain"
 
         if fmt == "writetoday":
-            reddit_posts = parse_write_today_format(posts_text) if posts_text else []
+            reddit_posts = parse_write_today_format(
+                posts_text) if posts_text else []
         elif fmt == "delimited":
-            reddit_posts = parse_delimited_format(posts_text) if posts_text else []
+            reddit_posts = parse_delimited_format(
+                posts_text) if posts_text else []
         else:
             reddit_posts = parse_plain_text(posts_text) if posts_text else []
 
