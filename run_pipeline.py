@@ -102,6 +102,11 @@ def main():
         help="Reuse existing reddit_data.json / ai_news_data.json instead of re-fetching",
     )
     parser.add_argument(
+        "--skip-gen",
+        action="store_true",
+        help="Skip the Gemini post generation step (useful when the agent writes content directly)",
+    )
+    parser.add_argument(
         "--no-correct",
         action="store_true",
         help="Skip the OpenRouter banned-word correction pass",
@@ -134,8 +139,11 @@ def main():
     else:
         step("STEP 1/5 — Skipped (--skip-fetch)")
 
-    step("STEP 2/5 — Generating posts (Gemini)")
-    run([py, "generate_posts_via_gemini.py"])
+    if not args.skip_gen:
+        step("STEP 2/5 — Generating posts (Gemini)")
+        run([py, "generate_posts_via_gemini.py"])
+    else:
+        step("STEP 2/5 — Skipped post generation (--skip-gen)")
 
     step("STEP 2.5/5 — Generating and rendering visual assets (Puppeteer)")
     run([py, "generate_visuals.py"])
