@@ -23,6 +23,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Workflow diagnostics
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "sha=${{ github.sha }}"
+          echo "schedule=${{ github.event.schedule }}"
+          echo "branch=${GITHUB_REF_NAME}"
+          if [ -n "${GEMINI_API_KEY}" ]; then echo "gemini_secret=present"; else echo "gemini_secret=missing"; fi
+          if [ -n "${BUFFER_API_KEY}" ]; then echo "buffer_secret=present"; else echo "buffer_secret=missing"; fi
+          if [ -n "${BUFFER_ORG_ID}" ]; then echo "buffer_org_secret=present"; else echo "buffer_org_secret=missing"; fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -48,4 +59,4 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add carousel-hook-log.json infographic-run-log.json scheduled_history.json reddit_data.json ai_news_data.json || true
           git commit -m "Automated: update run logs and data cache [skip ci]" || exit 0
-          git push
+          git push origin HEAD:main
