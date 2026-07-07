@@ -304,6 +304,88 @@ def make_call(system_p, user_p, max_t=4000, retries=3):
     return None
 
 
+def build_fallback_layout(reddit_posts, ai_news):
+    top_reddit = reddit_posts[0] if reddit_posts else {}
+    top_news = ai_news[0] if ai_news else {}
+
+    reddit_title = top_reddit.get("title", "the feed-fetch failure boundary")
+    news_title = top_news.get("title", "today's AI infrastructure news")
+
+    return {
+        "carousel": {
+            "format": "SYSTEM_BREAKDOWN",
+            "accent_color": "#06D6A0",
+            "hook_style": "System Breakdown",
+            "slides": [
+                {
+                    "num": 1,
+                    "type": "hook",
+                    "headline": "One API should not kill the pipeline",
+                    "has_image": False,
+                },
+                {
+                    "num": 2,
+                    "type": "context",
+                    "headline": "The failure was not the fetch layer",
+                    "body": f"Reddit degraded through fallbacks, but the job kept enough context from {reddit_title}.",
+                    "has_image": True,
+                    "image_keyword": "terminal logs",
+                },
+                {
+                    "num": 3,
+                    "type": "point",
+                    "headline": "Treat generators as unreliable dependencies",
+                    "body": "The LLM call is powerful, but it still needs quota, uptime, and a clean response.",
+                    "has_image": True,
+                    "image_keyword": "api monitoring",
+                },
+                {
+                    "num": 4,
+                    "type": "point",
+                    "headline": "Keep a deterministic draft path",
+                    "body": "A fallback draft is less polished, but it preserves the scheduling workflow when the model is overloaded.",
+                    "has_image": True,
+                    "image_keyword": "automation workflow",
+                },
+                {
+                    "num": 5,
+                    "type": "point",
+                    "headline": "Separate degradation from failure",
+                    "body": f"News context like {news_title} can still shape the post even when one upstream API flakes.",
+                    "has_image": True,
+                    "image_keyword": "system architecture",
+                },
+                {
+                    "num": 6,
+                    "type": "insight",
+                    "headline": "The scheduler should survive upstream noise",
+                    "body": "The job is more reliable when each external service has a fallback boundary.",
+                    "has_image": False,
+                },
+                {
+                    "num": 7,
+                    "type": "cta",
+                    "headline": "Follow @akashlaha for more on founder systems",
+                    "has_image": False,
+                },
+            ],
+        },
+        "infographic": {
+            "format": "RANKED_BARS",
+            "accent_color": "#06D6A0",
+            "title_main": "Pipeline reliability comes from fallback depth",
+            "subtitle": "Every external dependency needs a graceful degradation path.",
+            "source": "Internal pipeline run, 2026",
+            "hero_number": "3",
+            "bars": [
+                {"label": "Fetch fallbacks", "value": "80%", "color": "#06D6A0"},
+                {"label": "Generation fallback", "value": "65%", "color": "#3BE3B7"},
+                {"label": "Manual recovery", "value": "35%", "color": "#8AF3D7"},
+            ],
+        },
+    }
+
+
 def build_fallback_output(reddit_posts, ai_news):
     top_reddit = reddit_posts[0] if reddit_posts else {}
     top_news = ai_news[0] if ai_news else {}
@@ -343,8 +425,32 @@ The tradeoff is simple. The fallback batch is less sharp than a model-written on
     if news_source:
         post_text = post_text.replace("AI news", news_source)
 
-    layout_data = {"carousel": {}, "infographic": {}}
+    layout_data = build_fallback_layout(reddit_posts, ai_news)
     return post_text, layout_data
+
+
+def parse_layout_json(json_data_str):
+    json_data_str = json_data_str.strip()
+    if json_data_str.startswith("```json"):
+        json_data_str = json_data_str[7:]
+    elif json_data_str.startswith("```"):
+        json_data_str = json_data_str[3:]
+    if json_data_str.endswith("```"):
+        json_data_str = json_data_str[:-3]
+    return json.loads(json_data_str.strip())
+
+
+def save_layout_data(layout_data):
+    carousel_data = layout_data.get("carousel", {})
+    infographic_data = layout_data.get("infographic", {})
+
+    with open("./carousel_data.json", "w") as f:
+        json.dump(carousel_data, f, indent=2)
+    print("Saved carousel_data.json")
+
+    with open("./infographic_data.json", "w") as f:
+        json.dump(infographic_data, f, indent=2)
+    print("Saved infographic_data.json")
 
 
 # Step 1: Generate LinkedIn text posts
@@ -365,8 +471,21 @@ with open(f"./linkedin_posts_{date_compact}.txt", "w") as f:
     f.write(post_text)
 print(f"Text posts saved to linkedin_posts_{date_compact}.txt")
 
-with open("./carousel_data.json", "w") as f:
-    json.dump({}, f)
-with open("./infographic_data.json", "w") as f:
-    json.dump({}, f)
-print("Saved empty carousel_data.json and infographic_data.json")
+if layout_data is None:
+    print("Starting Step 2: Extracting visuals layout JSON...")
+    json_prompt = f"Here are the generated LinkedIn posts:\n\n{post_text}\n\nGenerate the Carousel and Infographic JSON now."
+    json_data_str = make_call(system_prompt_json, json_prompt, max_t=8192)
+
+    if json_data_str:
+        try:
+            layout_data = parse_layout_json(json_data_str)
+        except Exception as e:
+            print(f"Error parsing JSON block from response: {e}")
+            print("Raw JSON string attempted:")
+            print(json_data_str[:1000])
+
+    if not layout_data:
+        print("Visual JSON generation failed. Using deterministic fallback layout.")
+        layout_data = build_fallback_layout(reddit_posts, ai_news)
+
+save_layout_data(layout_data)

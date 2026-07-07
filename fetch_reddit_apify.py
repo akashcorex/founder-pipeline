@@ -9,7 +9,7 @@ ctx = new_ssl_context()
 
 apify_token = get_env("APIFY_API_KEY")
 if not apify_token:
-    print("Error: APIFY_API_KEY not found in .env")
+    print("APIFY_API_KEY not configured; skipping Apify Reddit fetch.")
     exit(1)
 
 # StartUrls for the actor
