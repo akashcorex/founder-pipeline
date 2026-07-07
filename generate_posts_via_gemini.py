@@ -294,7 +294,7 @@ def _call_gemini(model_name, system_p, user_p, max_t=4000):
 
     try:
         print(f"Calling Google Gemini model: {model_name}...")
-        with urllib.request.urlopen(req, context=ctx) as res:
+        with urllib.request.urlopen(req, context=ctx, timeout=60) as res:
             resp = json.loads(res.read().decode("utf-8"))
             if (
                 resp
@@ -312,6 +312,8 @@ def _call_gemini(model_name, system_p, user_p, max_t=4000):
             print("Response body:", e.read().decode("utf-8"))
         except Exception as read_err:
             print("Failed to read error body:", read_err)
+    except urllib.error.URLError as e:
+        print(f"URL Error calling Gemini: {e}")
     except Exception as e:
         traceback.print_exc()
         print(f"Error calling Gemini: {e}")
@@ -322,6 +324,7 @@ def make_call(system_p, user_p, max_t=4000, retries=3):
     for model_index, model_name in enumerate(GEMINI_MODELS):
         attempts = retries if model_index == 0 else 1
         for attempt in range(1, attempts + 1):
+            print(f"Gemini attempt {attempt}/{attempts} using {model_name}...")
             result = _call_gemini(model_name, system_p, user_p, max_t=max_t)
             if result:
                 return result
